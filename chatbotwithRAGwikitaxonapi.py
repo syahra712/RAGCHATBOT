@@ -1,3 +1,4 @@
+import streamlit as st
 import requests
 
 # Function to fetch content from Wikipedia based on a topic
@@ -9,32 +10,6 @@ def fetch_wikipedia_content(topic):
         return data.get("extract", "No information available.")
     else:
         return "No information available."
-
-# Function to fetch vector species data (with SSL verification skipped)
-def fetch_vector_species_data(taxon_name):
-    url = f"https://insectvectors.science/api/vectors?name={taxon_name.replace(' ', '%20')}"
-    
-    # Disable SSL verification (temporary workaround)
-    response = requests.get(url, verify=False)  # verify=False disables SSL certificate validation
-    
-    if response.status_code == 200:
-        data = response.json()
-        if data["count"] > 0:
-            species_data = data["results"][0]["data"]
-            distribution = species_data.get("distribution", "No distribution info available.")
-            genus = species_data.get("genus", "Unknown genus")
-            specific_epithet = species_data.get("specificepithet", "Unknown epithet")
-            image_url = species_data.get("image", {}).get("url", "No image available.")
-            
-            return (
-                f"Species: {genus} {specific_epithet}\n"
-                f"Distribution: {distribution}\n"
-                f"Image: {image_url}"
-            )
-        else:
-            return "No vector species data found for the given name."
-    else:
-        return "Error fetching vector species data."
 
 # Function to use the Gemini API to generate an answer based on the question and context
 def generate_answer(question, context):
@@ -57,30 +32,68 @@ def generate_answer(question, context):
     else:
         return "Error generating response."
 
-# Main function to handle user queries
-def chatbot():
-    print("Welcome to the Crop Disease Chatbot! Ask about crop diseases, or type 'exit' to quit.")
-    while True:
-        question = input("\nYou: ")
-        
-        if question.lower() == 'exit':
-            print("Goodbye!")
-            break
-        
-        # Fetch Wikipedia content based on the user's question
-        crop_disease = "wheat septoria"  # Replace this with code to parse specific crop diseases if needed
-        context = fetch_wikipedia_content(crop_disease)
-        
-        # Fetch vector species data (e.g., Philaenus spumarius)
-        taxon_name = "philaenus spumarius"  # Example taxon name
-        vector_data = fetch_vector_species_data(taxon_name)
-        
-        # Use Gemini API to generate an answer
-        answer = generate_answer(question, context)
-        
-        print(f"\nChatbot: {answer}")
-        print(f"\nVector Data: {vector_data}")
+# Expanded list of diseases relevant to Pakistan
+disease_keywords = [
+    "wheat septoria", "wheat rust", "wheat yellow rust", "wheat leaf spot", "wheat stem rust", 
+    "rice blast", "rice sheath blight", "rice bacterial blight", "rice tungro virus", 
+    "cotton leaf curl", "cotton bollworm", "cotton root rot", "cotton mosaic virus", 
+    "maize leaf blight", "maize smut", "maize stalk rot", "maize rust", 
+    "tomato leaf curl virus", "tomato blight", "tomato mosaic virus", 
+    "potato blight", "potato tuber moth", "potato black leg", 
+    "chili mosaic virus", "chili wilt", "chili blight", 
+    "sugarcane smut", "sugarcane top shoot borer", "sugarcane rust", 
+    "peanut rust", "peanut blight", "peanut wilt", 
+    "mango anthracnose", "mango malformation", "mango hoppers", 
+    "citrus canker", "citrus greening", "citrus fruit drop", 
+    "grapevine downy mildew", "grapevine powdery mildew", 
+    "banana bunchy top virus", "banana wilt", "banana weevil borer"
+]
 
-# Run the chatbot
+# Function to extract potential crop disease from the user's question
+def extract_relevant_term(question):
+    # Normalize question to lowercase and search for keywords
+    question = question.lower()
+    
+    # Search for crop diseases
+    for disease in disease_keywords:
+        if disease in question:
+            return disease, "disease"
+    
+    return None, None
+
+# Streamlit UI
+def chatbot():
+    st.title("Crop Disease Chatbot")
+    st.subheader("Ask about crop diseases in Pakistan and get instant responses!")
+
+    # Input text box for the user's question
+    user_input = st.text_input("You: Ask about a crop disease (e.g., 'What is rice blast?')")
+
+    if user_input:
+        # Extract the relevant term from the user's question
+        term, term_type = extract_relevant_term(user_input)
+        
+        if term:
+            # Fetch Wikipedia content based on the term (disease)
+            context = fetch_wikipedia_content(term)
+            
+            # Display the context fetched from Wikipedia
+            st.write("### Disease Information:")
+            st.write(context)
+
+            # Generate a response using Gemini API
+            answer = generate_answer(user_input, context)
+            
+            # Display the chatbot's answer
+            st.write("### Chatbot's Response:")
+            st.write(answer)
+        else:
+            st.warning("Chatbot: I'm sorry, I couldn't detect a relevant disease from your question.")
+    
+    # Optional: Add a button to reset the chat
+    if st.button("Clear Chat"):
+        st.experimental_rerun()
+
+# Run the chatbot in the Streamlit app
 if __name__ == '__main__':
     chatbot()
